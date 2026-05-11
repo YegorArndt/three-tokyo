@@ -47,7 +47,7 @@ export function createEngine(canvas: HTMLCanvasElement) {
   composer.addPass(new RenderPass(scene, camera));
   const bloom = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.4,
+    0.15,
     0.8,
     0.0,
   );
@@ -61,7 +61,7 @@ export function createEngine(canvas: HTMLCanvasElement) {
   const gui = new GUI({ title: 'Controls' });
   const display = {
     exposure: 1.0,
-    bloom: 0.4,
+    bloom: 0.15,
     autoRotate: true,
   };
   const globalFolder = gui.addFolder('Global');
