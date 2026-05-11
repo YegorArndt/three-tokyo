@@ -1,52 +1,39 @@
 import * as THREE from 'three';
-import Stats from 'three/addons/libs/stats.module.js';
-import { createScene } from './scene';
-import { loadModel } from './loader';
-import { createComposer } from './postprocessing';
-import { createUi } from './ui';
+import { createEngine } from './engine';
+import { SceneHost } from './host';
+import { mountPanel } from './panel';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#app');
 if (!canvas) throw new Error('Canvas #app not found');
 
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
-
-const { scene, camera, controls } = createScene(renderer);
-const { composer, bloom } = createComposer(renderer, scene, camera);
-
-const stats = new Stats();
-stats.dom.style.cssText = 'position:fixed;top:8px;left:8px;opacity:0.7;';
-document.body.appendChild(stats.dom);
-
 const loaderEl = document.querySelector<HTMLDivElement>('#loader');
 const loaderFill = document.querySelector<HTMLDivElement>('#loader-fill');
 const loaderText = document.querySelector<HTMLDivElement>('#loader-text');
+if (!loaderEl || !loaderFill || !loaderText) throw new Error('Loader DOM missing');
 
-const { model, mixer } = await loadModel((p) => {
-  if (loaderFill) loaderFill.style.width = `${p}%`;
-  if (loaderText) loaderText.textContent = `Loading ${Math.floor(p)}%`;
-});
-scene.add(model);
-loaderEl?.classList.add('done');
+const loader = {
+  show: () => loaderEl.classList.remove('done'),
+  hide: () => loaderEl.classList.add('done'),
+  setProgress: (p: number) => {
+    loaderFill.style.width = `${p}%`;
+    const label = loaderEl.dataset.label ?? 'Loading';
+    loaderText.textContent = `${label} ${Math.floor(p)}%`;
+  },
+  setLabel: (label: string) => {
+    loaderEl.dataset.label = label;
+  },
+};
 
-const ui = createUi({ renderer, model, bloom });
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-});
+const engine = createEngine(canvas);
+const host = new SceneHost(engine, loader);
+mountPanel({ onSelect: (def) => void host.switchTo(def) });
 
 const clock = new THREE.Clock();
-renderer.setAnimationLoop(() => {
+engine.renderer.setAnimationLoop(() => {
   const dt = clock.getDelta();
-  mixer.update(dt);
-  if (ui.autoRotate) model.rotation.y += dt * ui.rotationSpeed;
-  controls.update();
-  composer.render();
-  stats.update();
+  const elapsed = clock.getElapsedTime();
+  host.update(dt, elapsed);
+  engine.controls.update();
+  engine.composer.render();
+  engine.stats.update();
 });
